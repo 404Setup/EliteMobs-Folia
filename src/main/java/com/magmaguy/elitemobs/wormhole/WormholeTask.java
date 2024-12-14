@@ -7,15 +7,18 @@ import com.magmaguy.elitemobs.economy.EconomyHandler;
 import com.magmaguy.elitemobs.quests.playercooldowns.PlayerQuestCooldowns;
 import com.magmaguy.elitemobs.utils.ChunkLocationChecker;
 import com.magmaguy.magmacore.util.ChatColorConverter;
+import one.tranic.irs.PluginSchedulerBuilder;
+import one.tranic.irs.Teleport;
+import one.tranic.irs.task.TaskImpl;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.HashSet;
@@ -25,21 +28,20 @@ public class WormholeTask {
     private WormholeTask() {
     }
 
-    public static BukkitTask startWormholeTask(WormholeEntry wormholeEntry) {
+    public static TaskImpl<Plugin> startWormholeTask(WormholeEntry wormholeEntry) {
         HashSet<Player> teleportingPlayers = new HashSet<>();
-        return new BukkitRunnable() {
+
+        BukkitRunnable task = new BukkitRunnable() {
             int counter = 0;
 
             @Override
             public void run() {
                 if (!ChunkLocationChecker.locationIsLoaded(wormholeEntry.getLocation())) {
                     if (wormholeEntry.getText() != null)
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                wormholeEntry.getText().remove();
-                            }
-                        }.runTask(MetadataHandler.PLUGIN);
+                        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                                .task(() -> wormholeEntry.getText().remove())
+                                .sync(wormholeEntry.getText())
+                                .run();
                     cancel();
                     return;
                 }
@@ -61,8 +63,13 @@ public class WormholeTask {
                     counter++;
                 }
             }
-        }.runTaskTimerAsynchronously(MetadataHandler.PLUGIN, 0, 5);
-
+        };//.runTaskTimerAsynchronously(MetadataHandler.PLUGIN, 0, 5);
+        return PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .delayTicks(0)
+                .period(5)
+                .sync(wormholeEntry.getLocation())
+                .task(task)
+                .run();
     }
 
     private static boolean checkPoint(WormholeEntry wormholeEntry, Location playerLocation, Player player, HashSet<Player> teleportingPlayers) {
@@ -103,17 +110,28 @@ public class WormholeTask {
             }
             return;
         }
-        Bukkit.getScheduler().runTask(MetadataHandler.PLUGIN, () -> {
-            if (wormholeEntry.getWormhole().getWormholeConfigFields().isBlindPlayer())
-                player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 20 * 2, 0));
-            player.teleport(destination);
-            player.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1f, 1f);
-            player.setVelocity(destination.getDirection().normalize());
-            player.setFlying(false);
-            Wormhole.getPlayerCooldowns().add(player);
-            Bukkit.getScheduler().scheduleSyncDelayedTask(MetadataHandler.PLUGIN, () -> Wormhole.getPlayerCooldowns().remove(player), 20 * 5L);
-        });
-
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .sync(player)
+                .task(() -> {
+                    if (wormholeEntry.getWormhole().getWormholeConfigFields().isBlindPlayer())
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 20 * 2, 0));
+                    Teleport.teleportAsync(player, destination).thenAcceptAsync((e) -> {
+                        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                                .sync(player)
+                                .task(() -> {
+                                    player.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1f, 1f);
+                                    player.setVelocity(destination.getDirection().normalize());
+                                    player.setFlying(false);
+                                    Wormhole.getPlayerCooldowns().add(player);
+                                    PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                                            .sync()
+                                            .task(() -> Wormhole.getPlayerCooldowns().remove(player))
+                                            .delayTicks(20 * 5L)
+                                            .run();
+                                })
+                                .run();
+                    });
+                }).run();
     }
 
     private static void visualEffect(int counter, WormholeEntry wormholeEntry) {

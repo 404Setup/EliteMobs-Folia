@@ -12,6 +12,8 @@ import com.magmaguy.elitemobs.mobconstructor.EliteEntity;
 import com.magmaguy.elitemobs.utils.DialogArmorStand;
 import com.magmaguy.elitemobs.utils.VisualDisplay;
 import com.magmaguy.magmacore.util.Round;
+import one.tranic.irs.PluginSchedulerBuilder;
+import one.tranic.irs.Teleport;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -95,7 +97,7 @@ public class PopupDisplay implements Listener {
         armorStand.addEquipmentLock(EquipmentSlot.HAND, ArmorStand.LockType.REMOVING_OR_CHANGING);
         armorStand.setRightArmPose(new EulerAngle(Math.PI / 2d, Math.PI + Math.PI / 2d, Math.PI));
 
-        new BukkitRunnable() {
+        BukkitRunnable task = new BukkitRunnable() {
             int counter = 0;
 
             @Override
@@ -106,13 +108,19 @@ public class PopupDisplay implements Listener {
                     return;
                 }
                 try {
-                    armorStand.teleport(getResistLocation(player, eliteEntity));
+                    Teleport.teleportAsync(armorStand, getResistLocation(player, eliteEntity));
                 } catch (Exception e) {
                     //Sometimes, very rarely, x is not finite. Doesn't really matter.
                 }
                 counter++;
             }
-        }.runTaskTimer(MetadataHandler.PLUGIN, 1, 1);
+        };
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .sync(player)
+                .task(task)
+                .delayTicks(1)
+                .period(1)
+                .run();
     }
 
     private Location getResistLocation(Player player, EliteEntity eliteEntity) {
@@ -130,7 +138,7 @@ public class PopupDisplay implements Listener {
         textDisplays[0] = generateWeakArmorStand(player, eliteEntity, material, -1);
         textDisplays[1] = generateWeakArmorStand(player, eliteEntity, material, 1);
 
-        new BukkitRunnable() {
+        BukkitRunnable task = new BukkitRunnable() {
             int counter = 0;
 
             @Override
@@ -142,11 +150,17 @@ public class PopupDisplay implements Listener {
                     return;
                 }
                 for (TextDisplay armorStand : textDisplays)
-                    armorStand.teleport(armorStand.getLocation().add(eliteEntity.getLocation().add(new Vector(0, 0, 0))
+                    Teleport.teleportAsync(armorStand, armorStand.getLocation().add(eliteEntity.getLocation().add(new Vector(0, 0, 0))
                             .subtract(armorStand.getLocation()).toVector().normalize().multiply(.4)));
                 counter++;
             }
-        }.runTaskTimer(MetadataHandler.PLUGIN, 1, 1);
+        };
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .sync(player)
+                .task(task)
+                .delayTicks(1)
+                .period(1)
+                .run();
     }
 
     private TextDisplay generateWeakArmorStand(Player player, EliteEntity eliteEntity, Material material, int offset) {

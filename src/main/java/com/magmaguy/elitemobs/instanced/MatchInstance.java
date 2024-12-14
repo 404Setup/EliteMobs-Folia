@@ -11,6 +11,8 @@ import com.magmaguy.elitemobs.config.DefaultConfig;
 import com.magmaguy.elitemobs.playerdata.database.PlayerData;
 import com.magmaguy.magmacore.util.ChatColorConverter;
 import lombok.Getter;
+import one.tranic.irs.PluginSchedulerBuilder;
+import one.tranic.irs.Teleport;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -138,7 +140,11 @@ public abstract class MatchInstance {
     }
 
     private void startWatchdogs() {
-        new WatchdogTask().runTaskTimer(MetadataHandler.PLUGIN, 0, 1);
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .task(new WatchdogTask())
+                .delayTicks(0)
+                .period(1)
+                .run();
     }
 
     public void countdownMatch() {
@@ -148,7 +154,11 @@ public abstract class MatchInstance {
             return;
         }
         state = InstancedRegionState.STARTING;
-        new CountdownTask().runTaskTimer(MetadataHandler.PLUGIN, 0L, 20L);
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .task(new CountdownTask())
+                .delayTicks(0L)
+                .period(20L)
+                .run();
     }
 
     private void playerWatchdog() {
@@ -156,7 +166,7 @@ public abstract class MatchInstance {
             if (!player.isOnline()) removePlayer(player);
             if (!isInRegion(player.getLocation())) {
                 MatchInstanceEvents.teleportBypass = true;
-                player.teleport(startLocation);
+                Teleport.teleport(player, startLocation);
             }
         });
     }
@@ -166,7 +176,7 @@ public abstract class MatchInstance {
             if (!player.isOnline()) removeSpectator(player);
             if (!isInRegion(player.getLocation())) {
                 MatchInstanceEvents.teleportBypass = true;
-                player.teleport(startLocation);
+                Teleport.teleport(player, startLocation);
             }
         });
     }
@@ -179,21 +189,22 @@ public abstract class MatchInstance {
                     !player.hasPermission("elitemobs.*") &&
                     isInRegion(player.getLocation())) {
                 MatchInstanceEvents.teleportBypass = true;
-                if (exitLocation != null) player.teleport(exitLocation);
+                if (exitLocation != null) Teleport.teleport(player, exitLocation);
                 else if (PlayerData.getBackTeleportLocation(player) != null)
-                    player.teleport(PlayerData.getBackTeleportLocation(player));
-                else player.teleport(DefaultConfig.getDefaultSpawnLocation());
+                    Teleport.teleport(player, PlayerData.getBackTeleportLocation(player));
+                else Teleport.teleport(player, DefaultConfig.getDefaultSpawnLocation());
             }
     }
 
     private void instanceMessages() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (state == InstancedRegionState.WAITING)
-                    announce(ArenasConfig.getArenaStartHintMessage().replace("$count", minPlayers + ""));
-            }
-        }.runTaskTimer(MetadataHandler.PLUGIN, 0, 20*60L);
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .task(() -> {
+                    if (state == InstancedRegionState.WAITING)
+                        announce(ArenasConfig.getArenaStartHintMessage().replace("$count", minPlayers + ""));
+                })
+                .delayTicks(0L)
+                .period(20 * 60L)
+                .run();
     }
 
     protected void announce(String message) {
@@ -240,7 +251,7 @@ public abstract class MatchInstance {
         state = InstancedRegionState.ONGOING;
         players.forEach(player -> {
             MatchInstanceEvents.teleportBypass = true;
-            player.teleport(startLocation);
+            Teleport.teleport(player, startLocation);
         });
         participants = (HashSet<Player>) players.clone();
     }

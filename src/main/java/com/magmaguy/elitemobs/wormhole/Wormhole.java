@@ -3,7 +3,7 @@ package com.magmaguy.elitemobs.wormhole;
 import com.magmaguy.elitemobs.MetadataHandler;
 import com.magmaguy.elitemobs.config.wormholes.WormholeConfigFields;
 import lombok.Getter;
-import org.bukkit.Bukkit;
+import one.tranic.irs.PluginSchedulerBuilder;
 import org.bukkit.Color;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -28,7 +28,10 @@ public class Wormhole {
 
     public static void addPlayerToCooldowns(Player player) {
         playerCooldowns.add(player);
-        Bukkit.getScheduler().scheduleSyncDelayedTask(MetadataHandler.PLUGIN, () -> Wormhole.getPlayerCooldowns().remove(player), 20 * 5L);
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .task(() -> Wormhole.getPlayerCooldowns().remove(player))
+                .delayTicks(20*5L)
+                .run();
     }
 
     @Getter

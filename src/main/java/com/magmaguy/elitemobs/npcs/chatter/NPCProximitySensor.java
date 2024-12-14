@@ -10,7 +10,8 @@ import com.magmaguy.elitemobs.quests.CustomQuest;
 import com.magmaguy.elitemobs.quests.DynamicQuest;
 import com.magmaguy.elitemobs.quests.Quest;
 import com.magmaguy.elitemobs.utils.VisualDisplay;
-import org.bukkit.Bukkit;
+import one.tranic.irs.PluginSchedulerBuilder;
+import one.tranic.irs.Teleport;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
@@ -20,7 +21,6 @@ import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.HashSet;
@@ -32,36 +32,41 @@ public class NPCProximitySensor implements Listener {
     private static final HashSet<Player> nearbyPlayers = new HashSet<>();
 
     public NPCProximitySensor() {
-        new BukkitRunnable() {
-
-            @Override
-            public void run() {
-                HashSet<Player> unseenPlayerList = (HashSet<Player>) nearbyPlayers.clone();
-                for (NPCEntity npcEntity : EntityTracker.getNpcEntities().values()) {
-                    if (!npcEntity.isValid()) continue;
-                    for (Entity entity : npcEntity.getVillager().getNearbyEntities(npcEntity.getNPCsConfigFields().getActivationRadius(),
-                            npcEntity.getNPCsConfigFields().getActivationRadius(), npcEntity.getNPCsConfigFields().getActivationRadius())) {
-                        if (!entity.getType().equals(EntityType.PLAYER)) continue;
-                        Player player = (Player) entity;
-                        Location rotatedLocation = npcEntity.getVillager().getLocation().setDirection(entity.getLocation().subtract(npcEntity.getVillager().getLocation()).toVector());
-                        npcEntity.getVillager().teleport(rotatedLocation);
-                        if (unseenPlayerList.contains(player)) {
-                            if (!npcEntity.getNPCsConfigFields().getInteractionType().equals(NPCInteractions.NPCInteractionType.CHAT))
-                                npcEntity.sayDialog(player);
-                            unseenPlayerList.remove(player);
-                        } else {
-                            npcEntity.sayGreeting(player);
-                            nearbyPlayers.add(player);
-                            startQuestIndicator(npcEntity, player);
-                        }
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .task(() -> {
+                    HashSet<Player> unseenPlayerList = (HashSet<Player>) nearbyPlayers.clone();
+                    for (NPCEntity npcEntity : EntityTracker.getNpcEntities().values()) {
+                        if (!npcEntity.isValid()) continue;
+                        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                                .sync(npcEntity.getVillager())
+                                .task(() -> {
+                                    for (Entity entity : npcEntity.getVillager().getNearbyEntities(npcEntity.getNPCsConfigFields().getActivationRadius(),
+                                            npcEntity.getNPCsConfigFields().getActivationRadius(), npcEntity.getNPCsConfigFields().getActivationRadius())) {
+                                        if (!entity.getType().equals(EntityType.PLAYER)) continue;
+                                        Player player = (Player) entity;
+                                        Location rotatedLocation = npcEntity.getVillager().getLocation().setDirection(entity.getLocation().subtract(npcEntity.getVillager().getLocation()).toVector());
+                                        Teleport.teleportAsync(npcEntity.getVillager(), rotatedLocation)
+                                                .thenAcceptAsync((e) ->
+                                                        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                                                        .sync(npcEntity.getVillager())
+                                                        .task(() -> {
+                                                            if (unseenPlayerList.contains(player)) {
+                                                                if (!npcEntity.getNPCsConfigFields().getInteractionType().equals(NPCInteractions.NPCInteractionType.CHAT))
+                                                                    npcEntity.sayDialog(player);
+                                                                unseenPlayerList.remove(player);
+                                                            } else {
+                                                                npcEntity.sayGreeting(player);
+                                                                nearbyPlayers.add(player);
+                                                                startQuestIndicator(npcEntity, player);
+                                                            }
+                                                        }).run());
+                                    }
+                                }).run();
                     }
-                }
 
-                nearbyPlayers.removeIf(unseenPlayerList::contains);
-
-            }
-
-        }.runTaskTimer(MetadataHandler.PLUGIN, 0, 20L * 5L);
+                    nearbyPlayers.removeIf(unseenPlayerList::contains);
+                }).delayTicks(0).period(20L * 5L)
+                .run();
 
     }
 
@@ -141,30 +146,31 @@ public class NPCProximitySensor implements Listener {
         TextDisplay visualArmorStand = VisualDisplay.generateTemporaryTextDisplay(newLocation, messageUp);
         AtomicInteger counter = new AtomicInteger();
         AtomicBoolean up = new AtomicBoolean(true);
-        Bukkit.getScheduler().runTaskTimer(MetadataHandler.PLUGIN, task -> {
-            if (!player.isValid() ||
-                    npcEntity.getVillager() == null ||
-                    !npcEntity.getVillager().isValid() ||
-                    !npcEntity.getVillager().getWorld().equals(player.getWorld()) ||
-                    npcEntity.getVillager().getLocation().distance(player.getLocation()) > npcEntity.getNPCsConfigFields().getActivationRadius()) {
-                task.cancel();
-                EntityTracker.unregister(visualArmorStand, RemovalReason.EFFECT_TIMEOUT);
-                return;
-            }
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .sync(visualArmorStand)
+                .task((task) -> {
+                    if (!player.isValid() ||
+                            npcEntity.getVillager() == null ||
+                            !npcEntity.getVillager().isValid() ||
+                            !npcEntity.getVillager().getWorld().equals(player.getWorld()) ||
+                            npcEntity.getVillager().getLocation().distance(player.getLocation()) > npcEntity.getNPCsConfigFields().getActivationRadius()) {
+                        task.cancel();
+                        EntityTracker.unregister(visualArmorStand, RemovalReason.EFFECT_TIMEOUT);
+                        return;
+                    }
 
-            counter.getAndIncrement();
+                    counter.getAndIncrement();
 
-            if (counter.get() % 20 == 0) {
-                up.getAndSet(!up.get());
-                if (up.get())
-                    visualArmorStand.setCustomName(messageUp);
-                else
-                    visualArmorStand.setCustomName(messageDown);
-            }
+                    if (counter.get() % 20 == 0) {
+                        up.getAndSet(!up.get());
+                        if (up.get())
+                            visualArmorStand.setCustomName(messageUp);
+                        else
+                            visualArmorStand.setCustomName(messageDown);
+                    }
 
-            visualArmorStand.teleport(visualArmorStand.getLocation().clone().add(new Vector(0, up.get() ? 0.01 : -0.01, 0)));
-
-        }, 0L, 1L);
+                    Teleport.teleportAsync(visualArmorStand, visualArmorStand.getLocation().clone().add(new Vector(0, up.get() ? 0.01 : -0.01, 0)));
+                }).delayTicks(0L).period(1L).run();
     }
 
     @EventHandler

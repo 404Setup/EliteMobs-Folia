@@ -7,6 +7,7 @@ import com.magmaguy.magmacore.util.ChatColorConverter;
 import com.magmaguy.magmacore.util.Logger;
 import com.magmaguy.magmacore.util.SpigotMessage;
 import lombok.Getter;
+import one.tranic.irs.PluginSchedulerBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -58,7 +59,7 @@ public class VersionChecker {
 
 
     private static void checkPluginVersion() {
-        new BukkitRunnable() {
+        BukkitRunnable task = new BukkitRunnable() {
             @Override
             public void run() {
                 String currentVersion = MetadataHandler.PLUGIN.getDescription().getVersion();
@@ -105,57 +106,59 @@ public class VersionChecker {
 
                 pluginIsUpToDate = true;
             }
-        }.runTaskAsynchronously(MetadataHandler.PLUGIN);
+        };
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN).async().task(task).run();
     }
 
     private static void checkContentVersion() {
-        Bukkit.getScheduler().runTaskAsynchronously(MetadataHandler.PLUGIN, () -> {
-            try {
-                String remoteVersions = readStringFromURL("https://www.magmaguy.com/api/elitemobs_content");
-                String[] lines = remoteVersions.split("\n");
-                for (EMPackage emPackage : EMPackage.getEmPackages().values()) {
-                    if (!emPackage.isInstalled()) continue;
-                    if (!emPackage.getContentPackagesConfigFields().isDefaultDungeon()) continue;
-                    boolean containedInMetaPackage = false;
-                    for (EMPackage metaPackage : EMPackage.getEmPackages().values())
-                        if (metaPackage.getContentPackagesConfigFields().getContainedPackages() != null &&
-                                !metaPackage.getContentPackagesConfigFields().getContainedPackages().isEmpty() &&
-                                metaPackage.getContentPackagesConfigFields().getContainedPackages().contains(emPackage.getContentPackagesConfigFields().getFilename())) {
-                            containedInMetaPackage = true;
-                            break;
-                        }
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .async().task(() -> {
+                    try {
+                        String remoteVersions = readStringFromURL("https://www.magmaguy.com/api/elitemobs_content");
+                        String[] lines = remoteVersions.split("\n");
+                        for (EMPackage emPackage : EMPackage.getEmPackages().values()) {
+                            if (!emPackage.isInstalled()) continue;
+                            if (!emPackage.getContentPackagesConfigFields().isDefaultDungeon()) continue;
+                            boolean containedInMetaPackage = false;
+                            for (EMPackage metaPackage : EMPackage.getEmPackages().values())
+                                if (metaPackage.getContentPackagesConfigFields().getContainedPackages() != null &&
+                                        !metaPackage.getContentPackagesConfigFields().getContainedPackages().isEmpty() &&
+                                        metaPackage.getContentPackagesConfigFields().getContainedPackages().contains(emPackage.getContentPackagesConfigFields().getFilename())) {
+                                    containedInMetaPackage = true;
+                                    break;
+                                }
 
-                    if (containedInMetaPackage) continue;
-                    boolean checked = false;
-                    for (String line : lines) {
-                        if (line.startsWith(emPackage.getContentPackagesConfigFields().getFilename().replace(".yml", ""))) {
-                            String[] split = line.split(":");
-                            int remoteVersion = 0;
-                            try {
-                                remoteVersion = Integer.parseInt(split[1].trim());
-                            } catch (Exception e) {
-                                Logger.warn("Remote version substring: " + split[1].trim());
-                                e.printStackTrace();
+                            if (containedInMetaPackage) continue;
+                            boolean checked = false;
+                            for (String line : lines) {
+                                if (line.startsWith(emPackage.getContentPackagesConfigFields().getFilename().replace(".yml", ""))) {
+                                    String[] split = line.split(":");
+                                    int remoteVersion = 0;
+                                    try {
+                                        remoteVersion = Integer.parseInt(split[1].trim());
+                                    } catch (Exception e) {
+                                        Logger.warn("Remote version substring: " + split[1].trim());
+                                        e.printStackTrace();
+                                    }
+                                    if (remoteVersion > emPackage.getContentPackagesConfigFields().getDungeonVersion()) {
+                                        emPackage.setOutOfDate(true);
+                                        outdatedPackages.add(emPackage);
+                                        Logger.warn("Content " + emPackage.getContentPackagesConfigFields().getName() +
+                                                " is outdated! You should go download the updated version! Your version: " +
+                                                emPackage.getContentPackagesConfigFields().getDungeonVersion() + " / remote version: " +
+                                                remoteVersion + " / Link: " + emPackage.getContentPackagesConfigFields().getDownloadLink());
+                                    }
+                                    checked = true;
+                                    break;
+                                }
                             }
-                            if (remoteVersion > emPackage.getContentPackagesConfigFields().getDungeonVersion()) {
-                                emPackage.setOutOfDate(true);
-                                outdatedPackages.add(emPackage);
-                                Logger.warn("Content " + emPackage.getContentPackagesConfigFields().getName() +
-                                        " is outdated! You should go download the updated version! Your version: " +
-                                        emPackage.getContentPackagesConfigFields().getDungeonVersion() + " / remote version: " +
-                                        remoteVersion + " / Link: " + emPackage.getContentPackagesConfigFields().getDownloadLink());
-                            }
-                            checked = true;
-                            break;
+                            if (!checked)
+                                Logger.warn("Failed to check content " + emPackage.getContentPackagesConfigFields().getFilename() + " ! The remote server doesn't have a version listed for it, report it to the developer!");
                         }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
-                    if (!checked)
-                        Logger.warn("Failed to check content " + emPackage.getContentPackagesConfigFields().getFilename() + " ! The remote server doesn't have a version listed for it, report it to the developer!");
-                }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+                }).run();
     }
 
     private static String readStringFromURL(String url) throws IOException {
@@ -186,7 +189,7 @@ public class VersionChecker {
 
             if (!event.getPlayer().hasPermission("elitemobs.versionnotification")) return;
 
-            new BukkitRunnable() {
+            BukkitRunnable task = new BukkitRunnable() {
                 @Override
                 public void run() {
                     if (!event.getPlayer().isOnline()) return;
@@ -221,7 +224,11 @@ public class VersionChecker {
                         event.getPlayer().sendMessage(ChatColorConverter.convert("&8[EliteMobs] &cThe EliteMobs resource pack has updated! This means that the current resource pack will not fully work until you restart your server. You only need to restart once!"));
                     }
                 }
-            }.runTaskLater(MetadataHandler.PLUGIN, 20L * 3);
+            };
+            PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                    .task(task)
+                    .delayTicks(20L * 3)
+                    .run();
 
         }
     }

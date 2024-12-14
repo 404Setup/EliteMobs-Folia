@@ -3,6 +3,7 @@ package com.magmaguy.elitemobs.api;
 import com.magmaguy.elitemobs.dungeons.EliteMobsWorld;
 import com.magmaguy.elitemobs.playerdata.database.PlayerData;
 import com.magmaguy.elitemobs.utils.EventCaller;
+import one.tranic.irs.Teleport;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
@@ -67,7 +68,7 @@ public class PlayerTeleportEvent extends Event implements Cancellable {
         if (!EliteMobsWorld.isEliteMobsWorld(player.getLocation().getWorld().getUID()))
             PlayerData.setBackTeleportLocation(player, originalLocation);
 
-        player.teleport(destination);
+        Teleport.teleport(player, destination);
     }
 
     public static class PlayerTeleportEventExecutor implements Listener {

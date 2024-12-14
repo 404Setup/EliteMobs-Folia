@@ -9,6 +9,7 @@ import com.magmaguy.elitemobs.wormhole.Wormhole;
 import com.magmaguy.magmacore.util.ChatColorConverter;
 import com.magmaguy.magmacore.util.Logger;
 import lombok.Getter;
+import one.tranic.irs.Teleport;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -30,7 +31,7 @@ public class WorldPackage extends EMPackage {
     public void doInstall(Player player) {
         DungeonUtils.loadWorld(this);
         contentPackagesConfigFields.installWorld();
-        player.teleport(contentPackagesConfigFields.getTeleportLocation());
+        Teleport.teleport(player, contentPackagesConfigFields.getTeleportLocation());
         world = contentPackagesConfigFields.getTeleportLocation().getWorld();
         if (contentPackagesConfigFields.getSong() != null)
             new CustomMusic(contentPackagesConfigFields.getSong(), contentPackagesConfigFields, world);

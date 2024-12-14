@@ -6,6 +6,7 @@ import com.magmaguy.elitemobs.utils.EventCaller;
 import com.magmaguy.magmacore.util.ChatColorConverter;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
+import one.tranic.irs.PluginSchedulerBuilder;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
@@ -45,7 +46,7 @@ public class PlayerPreTeleportEvent extends Event implements Cancellable {
     }
 
     public void startTeleport() {
-        new BukkitRunnable() {
+        BukkitRunnable task = new BukkitRunnable() {
             int timerLeft = 3;
 
             @Override
@@ -80,7 +81,13 @@ public class PlayerPreTeleportEvent extends Event implements Cancellable {
 
                 timerLeft--;
             }
-        }.runTaskTimer(MetadataHandler.PLUGIN, 0, 20);
+        };
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .sync(player)
+                .task(task)
+                .delayTicks(0)
+                .period(20)
+                .run();
     }
 
     @Override

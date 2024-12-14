@@ -12,11 +12,12 @@ import com.magmaguy.magmacore.util.ChatColorConverter;
 import com.magmaguy.magmacore.util.Logger;
 import lombok.Getter;
 import lombok.Setter;
+import one.tranic.irs.task.TaskImpl;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Consumer;
 import org.bukkit.util.Vector;
 
@@ -37,7 +38,7 @@ public class WormholeEntry implements PersistentObject {
     private String armorStandText;
     @Getter
     @Setter
-    private BukkitTask wormholeTask;
+    private TaskImpl<Plugin> wormholeTask;
     @Getter
     @Setter
     private ArmorStand text = null;

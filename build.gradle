@@ -115,6 +115,7 @@ dependencies {
     implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     implementation group: 'com.magmaguy', name: 'EasyMinecraftGoals-dist', version: '1.13.4'
     implementation group: 'com.magmaguy', name: 'MagmaCore', version: '1.4'
+    implementation 'one.tranic:irs:1.3.1' // Scheduler Utils
 
 }
 
@@ -136,6 +137,7 @@ shadowJar {
         // Relocate MagmaCore
         relocate('com.magmaguy.magmacore', 'com.magmaguy.elitemobs.magmacore')
         relocate('com.magmaguy.easyminecraftgoals', 'com.magmaguy.elitemobs.easyminecraftgoals')
+        relocate('one.tranic.irs', 'com.magmaguy.elitemobs.irs')
     }
     archiveClassifier.set(null)
     archiveFileName.set(project.name + ".jar")

@@ -7,6 +7,7 @@ import com.magmaguy.elitemobs.mobconstructor.custombosses.CustomBossEntity;
 import com.magmaguy.elitemobs.utils.CommandRunner;
 import com.magmaguy.elitemobs.utils.EntitySearch;
 import com.magmaguy.elitemobs.utils.EventCaller;
+import one.tranic.irs.PluginSchedulerBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.EntityType;
@@ -35,22 +36,33 @@ public class EliteMobEnterCombatEvent extends Event {
             CommandRunner.runCommandFromList(customBossEntity.getCustomBossesConfigFields().getOnCombatEnterCommands(), new ArrayList<>());
         //Phase bosses can launch this event through phase switches
         if (!eliteEntity.isInCombat())
-            Bukkit.getScheduler().runTaskTimerAsynchronously(MetadataHandler.PLUGIN, task -> {
-                if (!eliteEntity.isValid()) {
-                    task.cancel();
-                    Bukkit.getScheduler().runTask(MetadataHandler.PLUGIN, syncTask -> new EventCaller(new EliteMobExitCombatEvent(eliteEntity, EliteMobExitCombatEvent.EliteMobExitCombatReason.ELITE_NOT_VALID)));
-                    return;
-                }
-                if (!eliteEntity.isInCombatGracePeriod()) {
-                    double followRange = eliteEntity.getLivingEntity().getAttribute(Attribute.GENERIC_FOLLOW_RANGE).getValue();
-                    if (eliteEntity.getLivingEntity().getType().equals(EntityType.ENDER_DRAGON))
-                        followRange = 200;
-                    if (EntitySearch.getNearbyCombatPlayers(eliteEntity.getLocation(), followRange).isEmpty()) {
-                        task.cancel();
-                        Bukkit.getScheduler().runTask(MetadataHandler.PLUGIN, syncTask -> new EventCaller(new EliteMobExitCombatEvent(eliteEntity, EliteMobExitCombatEvent.EliteMobExitCombatReason.NO_NEARBY_PLAYERS)));
-                    }
-                }
-            }, 20L, 20L);
+            PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                    .task((task) -> {
+                        if (!eliteEntity.isValid()) {
+                            task.cancel();
+                            PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                                    .sync(eliteEntity.getLocation())
+                                    .task(() -> new EventCaller(new EliteMobExitCombatEvent(eliteEntity, EliteMobExitCombatEvent.EliteMobExitCombatReason.ELITE_NOT_VALID)))
+                                    .run();
+                            return;
+                        }
+                        if (!eliteEntity.isInCombatGracePeriod()) {
+                            double followRange = eliteEntity.getLivingEntity().getAttribute(Attribute.GENERIC_FOLLOW_RANGE).getValue();
+                            if (eliteEntity.getLivingEntity().getType().equals(EntityType.ENDER_DRAGON))
+                                followRange = 200;
+                            if (EntitySearch.getNearbyCombatPlayers(eliteEntity.getLocation(), followRange).isEmpty()) {
+                                task.cancel();
+                                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                                        .sync(eliteEntity.getLocation())
+                                        .task(() -> new EventCaller(new EliteMobExitCombatEvent(eliteEntity, EliteMobExitCombatEvent.EliteMobExitCombatReason.NO_NEARBY_PLAYERS)))
+                                        .run();
+                            }
+                        }
+                    })
+                    .delayTicks(20L)
+                    .period(20L)
+                    .async()
+                    .run();
         eliteEntity.setInCombat(true);
     }
 

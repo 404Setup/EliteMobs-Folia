@@ -9,11 +9,10 @@ import com.magmaguy.elitemobs.menus.LootMenu;
 import com.magmaguy.elitemobs.mobconstructor.EliteEntity;
 import com.magmaguy.magmacore.util.ChatColorConverter;
 import lombok.Getter;
-import org.bukkit.Bukkit;
+import one.tranic.irs.PluginSchedulerBuilder;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +38,10 @@ public class SharedLootTable {
         sharedLootTables.put(eliteEntity, this);
         damagers.forEach(damager -> lootMenus.add(new LootMenu(damager, this, getPlayerTable(damager))));
         if (damagers.size() > 1)
-            Bukkit.getScheduler().runTaskLater(MetadataHandler.PLUGIN, this::messagePlayers, 1);
+            PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                    .task(this::messagePlayers)
+                    .delayTicks(1)
+                    .run();
         endLoot();
     }
 
@@ -57,21 +59,17 @@ public class SharedLootTable {
 
     private void endLoot() {
         if (damagers.size() < 2) {
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    distribute();
-                }
-            }.runTaskLater(MetadataHandler.PLUGIN, 1);
+            PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                    .task(this::distribute)
+                    .delayTicks(1)
+                    .run();
             return;
         }
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                distribute();
-            }
-        }.runTaskLater(MetadataHandler.PLUGIN, 20L * durationInSeconds);
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .task(this::distribute)
+                .delayTicks(20L * durationInSeconds)
+                .run();
     }
 
     private void distribute() {

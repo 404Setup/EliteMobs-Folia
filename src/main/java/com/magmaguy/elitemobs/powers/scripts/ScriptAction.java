@@ -18,6 +18,8 @@ import com.magmaguy.magmacore.util.Logger;
 import lombok.Getter;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
+import one.tranic.irs.PluginSchedulerBuilder;
+import one.tranic.irs.Teleport;
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -316,7 +318,7 @@ public class ScriptAction {
         targets.forEach(target -> {
             try {
                 MatchInstance.MatchInstanceEvents.teleportBypass = true;
-                target.teleport(destination);
+                Teleport.teleport(target, destination);
             } catch (Exception e) {
                 Logger.warn("Failed to teleport entity '" + target.getName() + "' in script '" + blueprint.getScriptName() + "': " + e.getMessage());
             } finally {
@@ -389,7 +391,10 @@ public class ScriptAction {
             if (target instanceof Player player) {
                 bossBar.addPlayer(player);
                 if (blueprint.getDuration() > 0) {
-                    Bukkit.getScheduler().runTaskLater(MetadataHandler.PLUGIN, bossBar::removeAll, blueprint.getDuration());
+                    PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                            .task(bossBar::removeAll)
+                            .delayTicks(blueprint.getDuration())
+                            .run();
                 }
             } else {
                 Logger.warn("BOSS_BAR_MESSAGE actions must target players! Problematic script: '" + blueprint.getScriptName() + "' in file '" + blueprint.getScriptFilename() + "'");
@@ -598,7 +603,11 @@ public class ScriptAction {
         getTargets(scriptActionData).forEach(target -> {
             target.setAI(aiEnabled);
             if (duration > 0) {
-                Bukkit.getScheduler().runTaskLater(MetadataHandler.PLUGIN, () -> target.setAI(!aiEnabled), duration);
+                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                        .sync(target)
+                        .task(() -> target.setAI(!aiEnabled))
+                        .delayTicks(duration)
+                        .run();
             }
         });
     }
@@ -616,7 +625,11 @@ public class ScriptAction {
             if (target instanceof Mob mob) {
                 mob.setAware(aware);
                 if (duration > 0) {
-                    Bukkit.getScheduler().runTaskLater(MetadataHandler.PLUGIN, () -> mob.setAware(!aware), duration);
+                    PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                            .sync(mob)
+                            .task(() -> mob.setAware(!aware))
+                            .delayTicks(duration)
+                            .run();
                 }
             } else {
                 Logger.warn("SET_MOB_AWARE action must target mobs! Problematic script: '" + blueprint.getScriptName() + "' in file '" + blueprint.getScriptFilename() + "'");
@@ -634,11 +647,16 @@ public class ScriptAction {
         float volume = blueprint.getVolume();
         float pitch = blueprint.getPitch();
         getLocationTargets(scriptActionData).forEach(location -> {
-            try {
-                location.getWorld().playSound(location, sound, volume, pitch);
-            } catch (Exception e) {
-                Logger.warn("Failed to play sound '" + sound + "' at location '" + location + "' in script '" + blueprint.getScriptName() + "': " + e.getMessage());
-            }
+            PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                    .sync(location)
+                    .task(() -> {
+                        try {
+                            location.getWorld().playSound(location, sound, volume, pitch);
+                        } catch (Exception e) {
+                            Logger.warn("Failed to play sound '" + sound + "' at location '" + location + "' in script '" + blueprint.getScriptName() + "': " + e.getMessage());
+                        }
+                    })
+                    .run();
         });
     }
 
@@ -655,18 +673,14 @@ public class ScriptAction {
         boolean additive = blueprint.getBValue() != null && blueprint.getBValue();
 
         // Delay the push by one tick to avoid interference with other events.
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                getTargets(scriptActionData).forEach(target -> {
-                    if (additive) {
-                        target.setVelocity(target.getVelocity().add(velocity));
-                    } else {
-                        target.setVelocity(velocity);
-                    }
-                });
-            }
-        }.runTaskLater(MetadataHandler.PLUGIN, 1);
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .task(() -> getTargets(scriptActionData).forEach(target -> {
+                    if (additive) target.setVelocity(target.getVelocity().add(velocity));
+                    else target.setVelocity(velocity);
+                }))
+                .sync()
+                .delayTicks(1L)
+                .run();
     }
 
     /**
@@ -759,16 +773,20 @@ public class ScriptAction {
                 }
             }
             if (duration > 0) {
-                Bukkit.getScheduler().runTaskLater(MetadataHandler.PLUGIN, () -> {
-                    target.setInvulnerable(!invulnerable);
-                    if (target instanceof Player player) {
-                        if (invulnerable) {
-                            invulnerablePlayers.remove(player);
-                        } else {
-                            invulnerablePlayers.add(player);
-                        }
-                    }
-                }, duration);
+                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                        .sync(target)
+                        .task(() -> {
+                            target.setInvulnerable(!invulnerable);
+                            if (target instanceof Player player) {
+                                if (invulnerable) {
+                                    invulnerablePlayers.remove(player);
+                                } else {
+                                    invulnerablePlayers.add(player);
+                                }
+                            }
+                        })
+                        .delayTicks(duration)
+                        .run();
             }
         });
     }
@@ -794,17 +812,19 @@ public class ScriptAction {
                 }
             }
             if (duration > 0) {
-                Bukkit.getScheduler().runTaskLater(MetadataHandler.PLUGIN, () -> {
-                    if (bossEntity != null) {
-                        bossEntity.removeTags(tags);
-                    }
-                    if (target instanceof Player player) {
-                        ElitePlayerInventory playerInventory = ElitePlayerInventory.getPlayer(player);
-                        if (playerInventory != null) {
-                            playerInventory.removeTags(tags);
-                        }
-                    }
-                }, duration);
+                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                        .sync(target)
+                        .task(() -> {
+                            if (bossEntity != null) {
+                                bossEntity.removeTags(tags);
+                            }
+                            if (target instanceof Player player) {
+                                ElitePlayerInventory playerInventory = ElitePlayerInventory.getPlayer(player);
+                                if (playerInventory != null) playerInventory.removeTags(tags);
+                            }
+                        })
+                        .delayTicks(duration)
+                        .run();
             }
         });
     }
@@ -830,17 +850,16 @@ public class ScriptAction {
                 }
             }
             if (duration > 0) {
-                Bukkit.getScheduler().runTaskLater(MetadataHandler.PLUGIN, () -> {
-                    if (bossEntity != null) {
-                        bossEntity.addTags(tags);
-                    }
-                    if (target instanceof Player player) {
-                        ElitePlayerInventory playerInventory = ElitePlayerInventory.getPlayer(player);
-                        if (playerInventory != null) {
-                            playerInventory.addTags(tags);
-                        }
-                    }
-                }, duration);
+                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                        .task(() -> {
+                            if (bossEntity != null) bossEntity.addTags(tags);
+                            if (target instanceof Player player) {
+                                ElitePlayerInventory playerInventory = ElitePlayerInventory.getPlayer(player);
+                                if (playerInventory != null) playerInventory.addTags(tags);
+                            }
+                        })
+                        .delayTicks(duration)
+                        .run();
             }
         });
     }
@@ -1044,7 +1063,10 @@ public class ScriptAction {
             if (attribute != null) {
                 attribute.setBaseValue(scaleValue);
                 if (duration > 0) {
-                    Bukkit.getScheduler().runTaskLater(MetadataHandler.PLUGIN, () -> attribute.setBaseValue(1.0), duration);
+                    PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                            .task(() -> attribute.setBaseValue(1.0))
+                            .delayTicks(duration)
+                            .run();
                 }
             }
         });
@@ -1063,7 +1085,7 @@ public class ScriptAction {
         getTargets(scriptActionData).forEach(target -> {
             Location location = target.getLocation();
             location.setDirection(direction);
-            target.teleport(location);
+            Teleport.teleport(target, location);
         });
     }
 }

@@ -1,6 +1,8 @@
 package com.magmaguy.elitemobs.powers.scripts;
 
+import com.magmaguy.elitemobs.MetadataHandler;
 import com.magmaguy.elitemobs.powers.scripts.caching.ScriptParticlesBlueprint;
+import one.tranic.irs.PluginSchedulerBuilder;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
@@ -43,63 +45,75 @@ public class ScriptParticles {
                 z = movementVector.getZ();
             }
 
+            final int amount2 = amount;
+            final double x2 = x;
+            final double y2 = y;
+            final double z2 = z;
 
-            if (particleBlueprint.getParticle().equals(Particle.DUST))
-                location.getWorld().spawnParticle(
-                        particleBlueprint.getParticle(),
-                        location,
-                        amount,
-                        x,
-                        y,
-                        z,
-                        particleBlueprint.getSpeed(),
-                        new Particle.DustOptions(
-                                Color.fromRGB(
-                                        particleBlueprint.getRed(),
-                                        particleBlueprint.getGreen(),
-                                        particleBlueprint.getBlue()),
-                                1));
-            else if (particleBlueprint.getParticle().equals(Particle.DUST_COLOR_TRANSITION))
-                location.getWorld().spawnParticle(
-                        particleBlueprint.getParticle(),
-                        location,
-                        amount,
-                        x,
-                        y,
-                        z,
-                        particleBlueprint.getSpeed(),
-                        new Particle.DustTransition(
-                                Color.fromRGB(
-                                        particleBlueprint.getRed(),
-                                        particleBlueprint.getGreen(),
-                                        particleBlueprint.getBlue()),
-                                Color.fromRGB(
-                                        particleBlueprint.getToRed(),
-                                        particleBlueprint.getToGreen(),
-                                        particleBlueprint.getToBlue()),
-                                1));
-            else if (particleBlueprint.getParticle().equals(Particle.WITCH)
+
+            if (particleBlueprint.getParticle().equals(Particle.DUST)) {
+                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                        .sync(location)
+                        .task(() -> location.getWorld().spawnParticle(
+                                particleBlueprint.getParticle(),
+                                location,
+                                amount2,
+                                x2,
+                                y2,
+                                z2,
+                                particleBlueprint.getSpeed(),
+                                new Particle.DustOptions(
+                                        Color.fromRGB(
+                                                particleBlueprint.getRed(),
+                                                particleBlueprint.getGreen(),
+                                                particleBlueprint.getBlue()),
+                                        1))).run();
+            } else if (particleBlueprint.getParticle().equals(Particle.DUST_COLOR_TRANSITION)) {
+                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                        .sync(location)
+                        .task(() -> location.getWorld().spawnParticle(
+                                particleBlueprint.getParticle(),
+                                location,
+                                amount2,
+                                x2,
+                                y2,
+                                z2,
+                                particleBlueprint.getSpeed(),
+                                new Particle.DustTransition(
+                                        Color.fromRGB(
+                                                particleBlueprint.getRed(),
+                                                particleBlueprint.getGreen(),
+                                                particleBlueprint.getBlue()),
+                                        Color.fromRGB(
+                                                particleBlueprint.getToRed(),
+                                                particleBlueprint.getToGreen(),
+                                                particleBlueprint.getToBlue()),
+                                        1))).run();
+            } else if (particleBlueprint.getParticle().equals(Particle.WITCH)
                 //|| particleBlueprint.getParticle().equals(Particle.WITCH_AMBIENT) todo: 1.20.6 changed this name
             ) {
-                location.getWorld().spawnParticle(
-                        particleBlueprint.getParticle(),
-                        x,
-                        y,
-                        z,
-                        amount,
-                        particleBlueprint.getRed(),
-                        particleBlueprint.getGreen(),
-                        particleBlueprint.getBlue());
+                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                        .sync(location)
+                        .task(() -> location.getWorld().spawnParticle(
+                                particleBlueprint.getParticle(),
+                                x2,
+                                y2,
+                                z2,
+                                amount2,
+                                particleBlueprint.getRed(),
+                                particleBlueprint.getGreen(),
+                                particleBlueprint.getBlue())).run();
             } else
-                location.getWorld().spawnParticle(
-                        particleBlueprint.getParticle(),
-                        location,
-                        amount,
-                        x,
-                        y,
-                        z,
-                        particleBlueprint.getSpeed());
-
+                PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                        .sync(location)
+                        .task(() -> location.getWorld().spawnParticle(
+                                particleBlueprint.getParticle(),
+                                location,
+                                amount2,
+                                x2,
+                                y2,
+                                z2,
+                                particleBlueprint.getSpeed())).run();
         }
     }
 }

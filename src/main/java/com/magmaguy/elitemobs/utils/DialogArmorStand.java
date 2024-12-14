@@ -3,6 +3,8 @@ package com.magmaguy.elitemobs.utils;
 import com.magmaguy.elitemobs.MetadataHandler;
 import com.magmaguy.elitemobs.api.internal.RemovalReason;
 import com.magmaguy.elitemobs.entitytracker.EntityTracker;
+import one.tranic.irs.PluginSchedulerBuilder;
+import one.tranic.irs.Teleport;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.TextDisplay;
@@ -18,7 +20,7 @@ public class DialogArmorStand {
         TextDisplay armorStand = VisualDisplay.generateTemporaryTextDisplay(sourceEntity.getLocation().clone().add(finalOffset), dialog);
 
         //This part is necessary because armorstands are visible on their first tick to players
-        new BukkitRunnable() {
+        BukkitRunnable task = new BukkitRunnable() {
             int taskTimer = 0;
 
             @Override
@@ -30,10 +32,16 @@ public class DialogArmorStand {
                     cancel();
                     return;
                 }
-                armorStand.teleport(sourceEntity.getLocation().clone().add(finalOffset).add(new Vector(0, taskTimer * 0.05, 0)));
+                Teleport.teleportAsync(armorStand, sourceEntity.getLocation().clone().add(finalOffset).add(new Vector(0, taskTimer * 0.05, 0)));
             }
 
-        }.runTaskTimer(MetadataHandler.PLUGIN, 0, 2);
+        };
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .sync(sourceEntity)
+                .task(task)
+                .delayTicks(0)
+                .period(2)
+                .run();
 
         return armorStand;
     }
@@ -51,7 +59,7 @@ public class DialogArmorStand {
 
         TextDisplay armorStand = VisualDisplay.generateTemporaryTextDisplay(sourceEntity.getLocation().clone().add(getDisplacementVector(sourceEntity)), dialog);
         //This part is necessary because armorstands are visible on their first tick to players
-        new BukkitRunnable() {
+        BukkitRunnable task = new BukkitRunnable() {
             int taskTimer = 0;
 
             @Override
@@ -61,10 +69,16 @@ public class DialogArmorStand {
                     cancel();
                     return;
                 }
-                armorStand.teleport(sourceEntity.getLocation().clone().add(getDisplacementVector(sourceEntity)));
+                Teleport.teleportAsync(armorStand, sourceEntity.getLocation().clone().add(getDisplacementVector(sourceEntity)));
                 taskTimer++;
             }
-        }.runTaskTimer(MetadataHandler.PLUGIN, 0, 1);
+        };
+        PluginSchedulerBuilder.builder(MetadataHandler.PLUGIN)
+                .sync(sourceEntity)
+                .task(task)
+                .delayTicks(0)
+                .period(1)
+                .run();
         return armorStand;
     }
 
